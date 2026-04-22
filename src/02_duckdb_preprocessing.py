@@ -27,7 +27,7 @@ def process_adwr_data(raw_csv_path, output_parquet_path):
                 "County" AS county,
                 TRY_CAST("UTM X Meters" AS DOUBLE) AS utm_x,
                 TRY_CAST("UTM Y Meters" AS DOUBLE) AS utm_y
-            FROM read_csv_auto('{raw_csv_path}', ignore_errors=true)
+            FROM read_csv_auto('{raw_csv_path}', sample_size=-1, ignore_errors=true)
             WHERE "UTM X Meters" IS NOT NULL 
               AND "UTM Y Meters" IS NOT NULL
         ) TO '{output_parquet_path}' (FORMAT PARQUET);

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  postgis_database:
+    # This tells Docker exactly which pre-built field lab to download
+    image: postgis/postgis:15-3.4
+    container_name: agce_postgis
+    environment:
+      # These are the credentials your Python script and QGIS will use
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=yourpassword
+      - POSTGRES_DB=agce_db
+    ports:
+      # This maps the container's internal port to your laptop's port
+      - "5432:5432"
+    volumes:
+      # This ensures your database isn't deleted if the container shuts down
+      - agce_db_data:/var/lib/postgresql/data
+
+volumes:
+  agce_db_data:
