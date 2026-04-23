@@ -1,11 +1,21 @@
-# Ignore raw and processed data files
+# 1. Ignore specific data folders (with gitkeep exceptions)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Ignore Python environments and cache
+# 2. Ignore Python environments and cache
 __pycache__/
 *.pyc
 .env
 .venv
+
+# 3. Catch-All: Ignore all large data/spatial files anywhere in the project
+*.csv
+*.parquet
+*.kml
+*.geojson
+*.shp
+
+# 4. Ignore local database mounts 
+pg_data/
