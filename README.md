@@ -1,75 +1,42 @@
-Arizona Groundwater Compliance Engine (AGCE)
-Automated Spatial ETL and Dashboarding for Environmental Permitting
+# Arizona Groundwater Compliance Engine (AGCE)
 
-📖 Project Overview
-In environmental consulting, establishing water rights and monitoring infrastructure for mining operations requires strict regulatory compliance. A standard requirement is assessing potential groundwater drawdown impacts on neighboring wells within a select radius of a proposed site.
+**Live Dashboard:** [\[https://public.tableau.com/views/agce/Sheet1?:language=en-US&publish=yes&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link\]]
 
-Traditionally, parsing the Arizona Department of Water Resources (ADWR) registry (150,000+ records) and calculating spatial buffers is a manual, bottlenecked GIS workflow. The AGCE is an automated, reproducible data engineering pipeline that ingests raw government data, performs complex spatial transformations in a Dockerized PostGIS database, and outputs an interactive Tableau dashboard for regulatory stakeholders.
 
-🏗️ Architecture & Tech Stack
-This project operates on the principle of pushing compute to the database, utilizing a modern, decoupled data stack:
+## Project Overview
+The Arizona Groundwater Compliance Engine (AGCE) is an automated spatial data pipeline designed to streamline environmental regulatory analysis. Traditional environmental consulting workflows often rely on manual geoprocessing in desktop GIS software, which is slow, difficult to reproduce, and creates data silos. 
 
-Processing Engine: DuckDB (Memory-efficient CSV parsing and type-inference handling)
+This project solves that bottleneck by containerizing the spatial math. By leveraging a custom ETL pipeline, the AGCE automatically ingests massive state compliance datasets, translates raw coordinates into indexed PostGIS geometries, and executes high-speed spatial queries (e.g., 5-mile impact radius analysis) natively within the database. The final output is automatically staged for a live, interactive visualization dashboard.
 
-Spatial Transformation: GeoPandas & Python
+## Architecture & Tech Stack
+* **Infrastructure:** Docker, PostgreSQL
+* **Spatial Engine:** PostGIS (EPSG: 26912 / UTM Zone 12N)
+* **ETL Pipeline:** Python, Pandas, DuckDB
+* **Data Visualization:** Tableau Public
 
-Database Infrastructure: Docker & PostGIS / PostgreSQL
+## Methodology
+1. **Extraction & Cleaning:** `clean_wells.py` uses Pandas to process the raw ADWR Wells55 Registry, standardizing headers to `snake_case` and filtering for valid spatial coordinates.
+2. **High-Speed Ingestion:** `load_to_postgis.py` bypasses traditional row-by-row loading. It utilizes DuckDB as an in-memory bridge to infer schema types and blast the cleaned CSV directly into the localized Docker container.
+3. **Spatial Transformation:** `make_spatial.py` executes native PostGIS commands to fuse raw UTM coordinates into `Geometry` objects and builds a Generalized Search Tree (`GIST`) index for millisecond rendering.
+4. **Optimized Spatial Analysis (Push-Down):** `export_for_tableau.py` performs a live `ST_DWithin` spatial query to identify compliance wells within an exact 5-mile radius of a target coordinate. The script uses DuckDB to push the query down to the PostGIS engine, leveraging the spatial index for extreme performance, before exporting the final localized dataset for visualization.
 
-Visualization: Tableau
+## How to Run Locally
+To reproduce this pipeline on your local machine:
 
-⚙️ The ETL Pipeline
-1. Extraction & Preprocessing (DuckDB)
-The ADWR state-wide registry is a dense, often inconsistently formatted CSV. Instead of loading this into Pandas, DuckDB is used to stream the file, strictly filter for valid UTM coordinates, handle dynamic type-inference anomalies (decimals vs. integers), and compress the clean data into a lightweight .parquet file.
+1. **Clone the repository and activate the environment:**
+   ```bash
+   git clone [https://github.com/YourUsername/AZ-Groundwater-Compliance-Engine.git](https://github.com/YourUsername/AZ-Groundwater-Compliance-Engine.git)
+   cd AZ-Groundwater-Compliance-Engine
+   python -m venv venv
+   source venv/Scripts/activate  # Or source venv/bin/activate on Mac/Linux
+   pip install -r requirements.txt
 
-2. Spatial Loading (GeoPandas & SQLAlchemy)
-The pipeline utilizes GeoPandas to ingest the clean Parquet file, transform raw UTM X and UTM Y fields into formalized geometries mapped to the ADWR standard coordinate reference system (EPSG:26912), and idempotently load the spatial data into the local PostGIS container.
+2. **Start the localized database engine:** 
+    docker compose up -d
 
-3. Impact Analysis (PostGIS SQL)
-Instead of relying on desktop GIS software, the heavy spatial math is executed directly in the database. A custom SQL script dynamically generates a 3-mile (15,840 ft) buffer around a specified anchor well (e.g., Arizona Minerals Inc. site), utilizes ST_DWithin to isolate neighboring wells, and extracts standard ST_Y and ST_X coordinates for visualization.
-
-4. Executive Export (Pandas)
-A final Python module queries the database, retrieves the isolated impact zone, and generates a clean CSV specifically formatted for Tableau's mapping engine.
-
-📊 The Deliverable: Tableau Dashboard
-The backend architecture feeds directly into an interactive front-end dashboard designed for Compliance Managers and Mine Operators.
-
-Visual Hierarchy: Implements preattentive attributes to highlight risk. Wells are color-coded by distance to the anchor site (red = high risk/close proximity) and sized by water depth.
-
-Interactive Filtering: Allows operators to instantly filter the impact zone by well type (Exempt vs. Non-Exempt) to assess potential regulatory exposure.
-
-![AGCE Dashboard Preview](assets/dashboard_preview.png)
-[**View the Live Interactive Dashboard on Tableau Public**]https://public.tableau.com/shared/QMWBB88QH?:display_count=n&:origin=viz_share_link
-
-📂 Repository Structure
-Plaintext
-AZ-Groundwater-Compliance-Engine/
-│
-├── data/
-│   ├── raw/                # ADWR Wells55 CSV (Ignored by Git)
-│   └── processed/          # Clean Parquet and Tableau Export CSV
-│
-├── src/
-│   ├── 02_duckdb_preprocessing.py   # Cleans and compresses raw data
-│   ├── 03_load_postgis.py           # Generates geometries and pushes to DB
-│   └── 04_export_impact_analysis.py # Executes spatial SQL and exports
-│
-├── docker-compose.yml      # PostGIS Infrastructure Blueprint
-├── .gitignore              # Environment and Data shielding
-└── README.md
-🚀 How to Run Locally
-1. Spin up the Database:
-
-Bash
-docker compose up -d
-2. Build the Python Environment:
-
-Bash
-python -m venv .venv
-source .venv/Scripts/activate
-pip install duckdb pyarrow pandas geopandas sqlalchemy psycopg2-binary geoalchemy2
-3. Execute the Pipeline:
-
-Bash
-python src/02_duckdb_preprocessing.py
-python src/03_load_postgis.py
-python src/04_export_impact_analysis.py
+3. **Execute the pipeline**
+    ```bash
+    python scripts/clean_wells.py
+    python scripts/load_to_postgis.py
+    python scripts/make_spatial.py
+    python scripts/export_for_tableau.py
