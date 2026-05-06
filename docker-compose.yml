@@ -1,21 +1,33 @@
-version: '3.8'
 
 services:
-  postgis_database:
-    # This tells Docker exactly which pre-built field lab to download
-    image: postgis/postgis:15-3.4
-    container_name: agce_postgis
+  # 1. The Core Spatial Engine
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: agce_spatial_db
     environment:
-      # These are the credentials your Python script and QGIS will use
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=yourpassword
-      - POSTGRES_DB=agce_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_DB: groundwater_db
     ports:
-      # This maps the container's internal port to your laptop's port
-      - "5432:5432"
+      - "5433:5432" # Mapping to 5433 to avoid conflicts if you have a local Postgres install
     volumes:
-      # This ensures your database isn't deleted if the container shuts down
-      - agce_db_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+    shm_size: 1g # CRITICAL: Allocates 1GB of RAM for heavy spatial index building
+    restart: unless-stopped
 
+  # 2. The Database GUI Manager
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: agce_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@agce.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgis
+    restart: unless-stopped
+
+# Ensures your data survives even if the container is deleted
 volumes:
-  agce_db_data:
+  pg_data:
